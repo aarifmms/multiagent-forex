@@ -1,0 +1,62 @@
+# Trading Parameters for XAUUSD
+# All values in pips/points unless specified
+
+xauusd:
+  symbol: "XAUUSD"
+  pip_value: 0.01      # 1 pip = $0.01 per 0.01 lot
+  point: 0.001
+  digits: 2
+
+  trading_sessions:
+    asian:
+      start: "00:00"
+      end: "09:00"
+      tz: "Asia/Tokyo"
+    london:
+      start: "08:00"
+      end: "17:00"
+      tz: "Europe/London"
+    new_york:
+      start: "13:00"
+      end: "22:00"
+      tz: "America/New_York"
+
+  optimal_sessions: ["LONDON", "NEW_YORK", "LONDON_NY_OVERLAP"]
+  avoid_sessions: []  # optionally skip Asian low-volatility
+
+  # Position sizing by session volatility
+  session_lot_multiplier:
+    ASIAN: 0.5
+    LONDON: 1.0
+    NEW_YORK: 1.0
+    LONDON_NY_OVERLAP: 1.25
+
+  # Minimum candle spread requirements per timeframe
+  min_atr_filter:
+    M5: 15    # minimum 15 pips ATR for M5 trades
+    M15: 25
+    H1: 50
+    H4: 80
+    D1: 150
+
+  # News event impact weights (multiplied with news agent signal)
+  news_impact_weights:
+    HIGH: 1.0
+    MEDIUM: 0.5
+    LOW: 0.2
+    HOLIDAY: 0.0
+
+  # Economic events that move XAUUSD
+  high_impact_events:
+    - "Non-Farm Employment Change"
+    - "CPI m/m"
+    - "Core CPI m/m"
+    - "FOMC Statement"
+    - "Federal Funds Rate"
+    - "GDP q/q"
+    - "ISM Manufacturing PMI"
+    - "Retail Sales m/m"
+    - "PPI m/m"
+    - "Unemployment Rate"
+    - "Consumer Confidence"
+    - "Powell Speaks"

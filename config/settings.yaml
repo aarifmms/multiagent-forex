@@ -1,0 +1,129 @@
+# Multi-Agent Forex Trading System Configuration
+# XAUUSD - Gold Trading System
+
+system:
+  name: "XAUUSD Multi-Agent Trader"
+  version: "1.0.0"
+  mode: "paper"  # paper | live
+  log_level: "INFO"  # DEBUG | INFO | WARNING | ERROR
+  price_source: "auto"  # auto | yahoo | finnhub | simulated
+  tick_interval: 1.0    # seconds between price updates
+
+broker:
+  provider: "mt5"  # mt5 | icmarkets
+  # ── MT5 (Windows / VPS) ──
+  # MT5 must be installed and logged into demo account
+  # Set via env: MT5_ACCOUNT, MT5_PASSWORD
+  mt5_path: ""      # leave empty on Windows (auto-detected)
+  account_id: null  # set via env MT5_ACCOUNT
+  password: null    # set via env MT5_PASSWORD
+  server: "ICMarkets-Demo"
+
+  # ── IC Markets / cTrader (Mac/Linux/Windows) ──
+  # Set via env: ICM_CLIENT_ID, ICM_CLIENT_SECRET, ICM_ACCOUNT_ID
+  # Get these at: https://openapi.ctrader.com/apps
+
+  symbol: "XAUUSD"
+  lot_size_min: 0.01
+  lot_size_max: 1.0
+  lot_step: 0.01
+
+agents:
+  scan_interval_seconds: 5  # how often each specialist agent produces a signal
+
+  news_agent:
+    enabled: true
+    weight: 0.15           # influence on final decision
+    blackout_minutes: 15   # no-trade window after high-impact news
+    sources:
+      - "https://www.forexfactory.com/calendar"
+      - "https://www.investing.com/economic-calendar/"
+
+  sentiment_agent:
+    enabled: true
+    weight: 0.15
+    cot_report_enabled: true
+    retail_sentiment_enabled: true
+
+  strategy_agent:
+    enabled: true
+    weight: 0.25
+    timeframes: ["M5", "M15", "H1", "H4", "D1"]
+    indicators:
+      ema_fast: 9
+      ema_slow: 21
+      ema_trend: 50
+      rsi_period: 14
+      rsi_oversold: 30
+      rsi_overbought: 70
+      macd_fast: 12
+      macd_slow: 26
+      macd_signal: 9
+      atr_period: 14
+
+  pattern_agent:
+    enabled: true
+    weight: 0.15
+    patterns:
+      - "HEAD_AND_SHOULDERS"
+      - "INVERSE_HEAD_AND_SHOULDERS"
+      - "BULL_FLAG"
+      - "BEAR_FLAG"
+      - "DOUBLE_TOP"
+      - "DOUBLE_BOTTOM"
+      - "ASCENDING_TRIANGLE"
+      - "DESCENDING_TRIANGLE"
+      - "BULLISH_ENGULFING"
+      - "BEARISH_ENGULFING"
+
+  correlation_agent:
+    enabled: true
+    weight: 0.10
+    correlated_symbols:
+      - "DXY"       # US Dollar Index
+      - "US10Y"     # 10Y Treasury Yield
+      - "SPX500"    # S&P 500
+
+  risk_agent:
+    enabled: true
+    weight: 1.0     # risk agent has veto power, not additive weight
+    max_risk_per_trade_pct: 1.0
+    max_daily_drawdown_pct: 3.0
+    max_open_trades: 2
+    atr_multiplier_sl: 1.5
+    atr_multiplier_tp: 2.5
+    min_risk_reward_ratio: 1.5
+
+decision_agent:
+  confidence_threshold: 0.70   # minimum weighted vote to fire a trade
+  cooldown_minutes: 5          # minimum time between new trades
+  max_signals_per_hour: 6
+
+  weights:
+    news: 0.15
+    sentiment: 0.15
+    strategy: 0.25
+    pattern: 0.15
+    correlation: 0.10
+    # risk: 1.0 veto (not in weighted sum)
+
+monitor:
+  telegram_enabled: false
+  telegram_bot_token: null   # set via env TELEGRAM_BOT_TOKEN
+  telegram_chat_id: null     # set via env TELEGRAM_CHAT_ID
+
+  persistence:
+    db_path: "data/trading_log.db"
+    signals_retention_days: 90
+
+execution:
+  trailing_stop:
+    enabled: true
+    activation_pips: 30      # start trailing after 30 pips profit
+    distance_pips: 15        # trail by 15 pips
+
+  partial_close:
+    enabled: true
+    close_50_at_rr: 1.0      # close 50% at 1:1 risk-reward
+    close_25_at_rr: 2.0      # close 25% at 2:1
+    runner_25_pct: 25        # let 25% run with trailing stop

@@ -1,0 +1,34 @@
+# Multi-Agent Forex Trading System - XAUUSD
+# Paper trading on macOS — minimal dependencies
+# All TA indicators implemented in pure Python (no TA-Lib/pandas-ta needed)
+
+# ── Core ───────────────────────────────────────────────────
+pyyaml>=6.0
+pydantic>=2.0
+
+# ── Broker Adapters ────────────────────────────────────────
+websockets>=12.0  # for IC Markets / cTrader Open API
+
+# ── Data ───────────────────────────────────────────────────
+pandas>=2.0
+numpy>=1.24
+yfinance>=0.2
+
+# ── News & Sentiment ───────────────────────────────────────
+feedparser>=6.0
+requests>=2.31
+beautifulsoup4>=4.12
+websocket-client>=1.6
+
+# ── Alerts & Monitoring ────────────────────────────────────
+python-telegram-bot>=20.0
+
+# ── Backtesting ────────────────────────────────────────────
+plotly>=5.14
+
+# ── MT5 Live Trading (WINDOWS ONLY — install on VPS) ──────
+# MetaTrader5>=5.0.45
+
+# ── LLM / AI (optional, for GPT-enhanced agents) ───────────
+# openai>=1.0
+# anthropic>=0.30
