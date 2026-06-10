@@ -144,18 +144,26 @@ class OrderManager:
         )
 
         self._active_trades[ticket] = trade
+
+        # In live mode, send to broker FIRST to get real ticket
+        if self.mode == "live":
+            await self._place_live_order(trade)
+            if trade.status == OrderStatus.CANCELLED:
+                del self._active_trades[ticket]
+                return None
+
         self.clock.record_trade()
 
         self.logger.info(
             "TRADE OPENED | Ticket=%d %s @ %.2f SL=%.2f TP=%.2f Lot=%.2f",
-            ticket, decision.action.value, filled_price,
+            trade.ticket, decision.action.value, filled_price,
             decision.stop_loss, decision.take_profit, decision.lot_size,
         )
 
-        # Sync to DataStore so monitor/other agents can see it
+        # Sync to DataStore with the REAL broker ticket
         from core.data_store import Position
         await self.store.update_position(Position(
-            ticket=ticket,
+            ticket=trade.ticket,
             symbol="XAUUSD",
             direction="BUY" if decision.action == TradeAction.BUY else "SELL",
             volume=decision.lot_size,
@@ -163,12 +171,8 @@ class OrderManager:
             sl=decision.stop_loss,
             tp=decision.take_profit,
             open_time=time.time(),
-            comment="MultiAgent Paper",
+            comment="MultiAgent Live" if self.mode == "live" else "MultiAgent Paper",
         ))
-
-        # In live mode, send to broker
-        if self.mode == "live":
-            await self._place_live_order(trade)
 
         return trade
 
