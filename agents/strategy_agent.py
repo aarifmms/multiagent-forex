@@ -56,7 +56,7 @@ class StrategyAgent(BaseAgent):
             return self._neutral(reason="Insufficient data across timeframes")
 
         composite = sum(scores)
-        confidence = min(1.0, abs(composite))
+        confidence = min(1.0, abs(composite) * 5.0)
 
         # Calculate entry / SL / TP from H1 candles
         h1_candles = await self.get_candles("H1", count=20)
@@ -112,16 +112,16 @@ class StrategyAgent(BaseAgent):
 
         if ema_f and ema_s and ema_t:
             if ema_f > ema_s > ema_t:
-                score += 0.35
+                score += 0.40
                 reasons.append("EMA-bullish-aligned")
             elif ema_f < ema_s < ema_t:
-                score -= 0.35
+                score -= 0.40
                 reasons.append("EMA-bearish-aligned")
             elif ema_f > ema_s and current < ema_t:
-                score += 0.15
+                score += 0.20
                 reasons.append("EMA-pullback-to-trend")
             elif ema_f < ema_s and current > ema_t:
-                score -= 0.15
+                score -= 0.20
                 reasons.append("EMA-rally-to-resistance")
             else:
                 reasons.append("EMA-mixed")
@@ -129,16 +129,16 @@ class StrategyAgent(BaseAgent):
         # 2. RSI
         rsi = self._calc_rsi(closes, self.rsi_period)
         if rsi < self.rsi_os:
-            score += 0.25
+            score += 0.30
             reasons.append(f"RSI-oversold({rsi:.0f})")
         elif rsi > self.rsi_ob:
-            score -= 0.25
+            score -= 0.30
             reasons.append(f"RSI-overbought({rsi:.0f})")
         elif rsi > 55:
-            score += 0.1
+            score += 0.15
             reasons.append(f"RSI-bullish({rsi:.0f})")
         elif rsi < 45:
-            score -= 0.1
+            score -= 0.15
             reasons.append(f"RSI-bearish({rsi:.0f})")
         else:
             reasons.append(f"RSI-neutral({rsi:.0f})")
@@ -147,16 +147,16 @@ class StrategyAgent(BaseAgent):
         macd, macd_signal_line, macd_hist = self._calc_macd(closes)
         if macd is not None:
             if macd_hist[-1] > 0 and macd_hist[-2] <= 0:
-                score += 0.2
+                score += 0.25
                 reasons.append("MACD-bullish-cross")
             elif macd_hist[-1] < 0 and macd_hist[-2] >= 0:
-                score -= 0.2
+                score -= 0.25
                 reasons.append("MACD-bearish-cross")
             elif macd_hist[-1] > macd_hist[-2]:
-                score += 0.1
+                score += 0.15
                 reasons.append("MACD-hist-rising")
             elif macd_hist[-1] < macd_hist[-2]:
-                score -= 0.1
+                score -= 0.15
                 reasons.append("MACD-hist-falling")
 
         # 4. Price relative to recent range
@@ -166,10 +166,10 @@ class StrategyAgent(BaseAgent):
         if rng > 0:
             pos = (current - ll) / rng
             if pos > 0.7:
-                score += 0.1
+                score += 0.15
                 reasons.append("price-near-high")
             elif pos < 0.3:
-                score -= 0.1
+                score -= 0.15
                 reasons.append("price-near-low")
 
         return max(-1.0, min(1.0, score)), {"score": round(score, 3), "reasons": reasons, "rsi": round(rsi, 1)}

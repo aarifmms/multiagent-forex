@@ -90,6 +90,8 @@ class OrderManager:
         self._active_trades: dict[int, ActiveTrade] = {}
         self._ticket_counter = 1000
         self._monitor_task: asyncio.Task | None = None
+        self._realized_pnl: float = 0.0
+        self._closed_trades: list[dict] = []  # P&L history
 
     async def start(self) -> None:
         self._monitor_task = asyncio.create_task(self._monitor_loop())
@@ -150,6 +152,20 @@ class OrderManager:
             decision.stop_loss, decision.take_profit, decision.lot_size,
         )
 
+        # Sync to DataStore so monitor/other agents can see it
+        from core.data_store import Position
+        await self.store.update_position(Position(
+            ticket=ticket,
+            symbol="XAUUSD",
+            direction="BUY" if decision.action == TradeAction.BUY else "SELL",
+            volume=decision.lot_size,
+            open_price=filled_price,
+            sl=decision.stop_loss,
+            tp=decision.take_profit,
+            open_time=time.time(),
+            comment="MultiAgent Paper",
+        ))
+
         # In live mode, send to broker
         if self.mode == "live":
             await self._place_live_order(trade)
@@ -196,14 +212,40 @@ class OrderManager:
             "reason": reason,
         })
 
-        if trade.remaining_lots <= 0.001:
+        # Calculate P&L for this close
+        tick = self.store.current_tick
+        close_price = (tick.bid + tick.ask) / 2 if tick else trade.entry_price
+        if trade.direction == TradeAction.BUY:
+            pnl = (close_price - trade.entry_price) * close_lots * 100
+        else:
+            pnl = (trade.entry_price - close_price) * close_lots * 100
+
+        if trade.remaining_lots - close_lots <= 0.001:
             trade.status = OrderStatus.CLOSED
             trade.remaining_lots = 0
-            self.logger.info("TRADE CLOSED | Ticket=%d Reason=%s", ticket, reason)
+            await self.store.remove_position(ticket)
+            self._realized_pnl += pnl
+            self._closed_trades.append({
+                "ticket": ticket, "direction": trade.direction.value,
+                "entry": trade.entry_price, "exit": round(close_price, 2),
+                "lots": trade.lot_size, "pnl": round(pnl, 2),
+                "reason": reason, "time": time.time(),
+            })
+            self.store.balance += pnl
+            self.logger.info("TRADE CLOSED | Ticket=%d Reason=%s PnL=$%.2f | Realized=$%.2f",
+                             ticket, reason, pnl, self._realized_pnl)
         else:
             trade.status = OrderStatus.PARTIALLY_CLOSED
-            self.logger.info("PARTIAL CLOSE | Ticket=%d Lots=%.2f Remaining=%.2f Reason=%s",
-                             ticket, close_lots, trade.remaining_lots, reason)
+            self._realized_pnl += pnl
+            self._closed_trades.append({
+                "ticket": ticket, "direction": trade.direction.value,
+                "entry": trade.entry_price, "exit": round(close_price, 2),
+                "lots": close_lots, "pnl": round(pnl, 2),
+                "reason": reason, "time": time.time(),
+            })
+            self.store.balance += pnl
+            self.logger.info("PARTIAL CLOSE | Ticket=%d Lots=%.2f Remaining=%.2f Reason=%s PnL=$%.2f",
+                             ticket, close_lots, trade.remaining_lots, reason, pnl)
 
         if self.mode == "live" and self._bridge:
             try:
@@ -220,9 +262,26 @@ class OrderManager:
                 await self._check_stop_levels()
                 await self._check_partial_close_targets()
                 await self._update_trailing_stops()
+                self._update_equity()
             except Exception as e:
                 self.logger.error("Monitor loop error: %s", e)
             await asyncio.sleep(0.5)
+
+    def _update_equity(self) -> None:
+        """Update store equity/balance based on open positions + realized P&L."""
+        tick = self.store.current_tick
+        if not tick:
+            return
+        mid = (tick.bid + tick.ask) / 2
+        unrealized = 0.0
+        for trade in self._active_trades.values():
+            if trade.status in (OrderStatus.FILLED, OrderStatus.PARTIALLY_CLOSED):
+                if trade.direction == TradeAction.BUY:
+                    unrealized += (mid - trade.entry_price) * trade.remaining_lots * 100
+                else:
+                    unrealized += (trade.entry_price - mid) * trade.remaining_lots * 100
+        self.store.equity = self.store.balance + unrealized
+        self.store.free_margin = self.store.equity - self.store.margin
 
     async def _check_stop_levels(self) -> None:
         """Check if any trade has hit SL or TP."""

@@ -132,6 +132,10 @@ class DecisionAgent(BaseAgent):
             elif sig.direction == SignalDirection.SELL:
                 direction = -1
 
+            # Ignore low-confidence votes — they add noise, not signal
+            if direction != 0 and sig.confidence < 0.35:
+                direction = 0
+
             contribution = direction * sig.confidence * w
             weighted_score += contribution
             # Only count agents that actually voted (non-neutral)

@@ -99,11 +99,13 @@ class TradingClock:
         self._blackout_until = self.now + (duration_minutes * 60)
 
     def session_lot_multiplier(self) -> float:
+        if self.force_session:
+            return 1.0
         multipliers = {
             Session.ASIAN: 0.5,
             Session.LONDON: 1.0,
             Session.NEW_YORK: 1.0,
             Session.LONDON_NY_OVERLAP: 1.25,
-            Session.CLOSED: 0.0,
+            Session.CLOSED: 0.3,  # off-hours/weekend — minimal sizing
         }
-        return multipliers.get(self.active_session, 0.0)
+        return multipliers.get(self.active_session, 0.3)

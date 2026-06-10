@@ -19,6 +19,7 @@ import math
 from agents.base_agent import BaseAgent
 from core.signal_bus import SignalDirection
 from core.data_store import Candle
+from core.clock import is_market_open, is_weekend
 
 
 class RiskAgent(BaseAgent):
@@ -45,14 +46,43 @@ class RiskAgent(BaseAgent):
         approved = True
 
         # ── 1. Market open check ──
-        if not self.clock.can_trade:
+        if self.clock.force_session:
+            pass  # force-session skips market-open check
+        elif not is_market_open():
             return self._neutral(
-                reason="Market closed / weekend / cooldown / blackout",
+                reason="Market closed",
                 risk_approved=False,
-                risk_checks=["market-closed-or-cooldown"],
+                risk_checks=["market-closed"],
             )
-
         checks.append("market-open")
+
+        # ── 1b. Cooldown check ──
+        if self.clock.is_in_cooldown:
+            remaining = int(self.clock.cooldown_seconds - (self.clock.now - self.clock._last_trade_time))
+            return self._neutral(
+                reason=f"Cooldown active ({remaining}s remaining)",
+                risk_approved=False,
+                risk_checks=["cooldown"],
+            )
+        checks.append("cooldown-ok")
+
+        # ── 1c. Blackout check ──
+        if self.clock.is_in_blackout:
+            return self._neutral(
+                reason="News blackout active",
+                risk_approved=False,
+                risk_checks=["blackout"],
+            )
+        checks.append("blackout-ok")
+
+        # ── 1d. Weekend check ──
+        if is_weekend():
+            return self._neutral(
+                reason="Weekend — market closed",
+                risk_approved=False,
+                risk_checks=["weekend"],
+            )
+        checks.append("weekday-ok")
 
         # ── 2. Max open positions ──
         open_count = len(self.store.open_positions)

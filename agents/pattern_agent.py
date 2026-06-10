@@ -139,14 +139,14 @@ class PatternAgent(BaseAgent):
         if not patterns_found:
             return self._neutral(reason="No patterns detected")
 
-        confidence = min(1.0, abs(score))
-        if score > 0.05:
+        confidence = min(1.0, abs(score) * 3.0)
+        if score > 0.15:
             return self._buy(confidence, reason=f"Bullish patterns: {', '.join(patterns_found[:3])}",
                              patterns=patterns_found)
-        elif score < -0.05:
+        elif score < -0.15:
             return self._sell(confidence, reason=f"Bearish patterns: {', '.join(patterns_found[:3])}",
                               patterns=patterns_found)
-        return self._neutral(reason=f"Mixed patterns: {', '.join(patterns_found[:3])}", patterns=patterns_found)
+        return self._neutral(reason=f"No clear patterns: {', '.join(patterns_found[:3]) if patterns_found else 'none'}", patterns=patterns_found)
 
     @staticmethod
     def _find_swings(prices: list[float], direction: str = "high", window: int = 5):

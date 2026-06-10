@@ -4,7 +4,7 @@
 system:
   name: "XAUUSD Multi-Agent Trader"
   version: "1.0.0"
-  mode: "paper"  # paper | live
+  mode: "live"  # paper | live
   log_level: "INFO"  # DEBUG | INFO | WARNING | ERROR
   price_source: "auto"  # auto | yahoo | finnhub | simulated
   tick_interval: 1.0    # seconds between price updates
@@ -95,8 +95,8 @@ agents:
     min_risk_reward_ratio: 1.5
 
 decision_agent:
-  confidence_threshold: 0.70   # minimum weighted vote to fire a trade
-  cooldown_minutes: 5          # minimum time between new trades
+  confidence_threshold: 0.50   # minimum weighted vote to fire a trade
+  cooldown_minutes: 2          # minimum time between new trades (demo testing)
   max_signals_per_hour: 6
 
   weights:
